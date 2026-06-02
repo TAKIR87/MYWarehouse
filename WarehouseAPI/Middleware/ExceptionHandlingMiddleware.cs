@@ -12,7 +12,7 @@ public class ExceptionHandlingMiddleware
         RequestDelegate next,
         ILogger<ExceptionHandlingMiddleware> logger)
     {
-        _next   = next;
+        _next = next;
         _logger = logger;
     }
 
@@ -33,21 +33,21 @@ public class ExceptionHandlingMiddleware
     {
         var (statusCode, message) = exception switch
         {
-            InvalidOperationException ex => (HttpStatusCode.BadRequest,      ex.Message),
-            KeyNotFoundException ex      => (HttpStatusCode.NotFound,         ex.Message),
-            ArgumentException ex         => (HttpStatusCode.BadRequest,       ex.Message),
-            UnauthorizedAccessException  => (HttpStatusCode.Unauthorized,     "Нет доступа"),
-            _                            => (HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
+            InvalidOperationException ex => (HttpStatusCode.BadRequest, ex.Message),
+            KeyNotFoundException ex => (HttpStatusCode.NotFound, ex.Message),
+            ArgumentException ex => (HttpStatusCode.BadRequest, ex.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Нет доступа"),
+            _ => (HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
         };
 
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode  = (int)statusCode;
+        context.Response.StatusCode = (int)statusCode;
 
         var response = new
         {
-            status  = (int)statusCode,
+            status = (int)statusCode,
             message,
-            path    = context.Request.Path.ToString(),
+            path = context.Request.Path.ToString(),
             traceId = context.TraceIdentifier   // удобно для отладки
         };
 

@@ -30,13 +30,13 @@ public class CounterpartyService : ICounterpartyService
     {
         var counterparty = new Counterparty
         {
-            Name    = dto.Name,
-            Type    = dto.Type,
-            Inn     = dto.Inn,
+            Name = dto.Name,
+            Type = dto.Type,
+            Inn = dto.Inn,
             Address = dto.Address,
             Contacts = dto.Contacts.Select(c => new Contact
             {
-                Name  = c.Name,
+                Name = c.Name,
                 Phone = c.Phone,
                 Email = c.Email
             }).ToList()
@@ -51,9 +51,9 @@ public class CounterpartyService : ICounterpartyService
         var counterparty = await _counterpartyRepository.GetByIdAsync(id);
         if (counterparty is null) return null;
 
-        counterparty.Name    = dto.Name;
-        counterparty.Type    = dto.Type;
-        counterparty.Inn     = dto.Inn;
+        counterparty.Name = dto.Name;
+        counterparty.Type = dto.Type;
+        counterparty.Inn = dto.Inn;
         counterparty.Address = dto.Address;
 
         // Обновляем контакты: новые добавляем, существующие обновляем, удалённые убираем
@@ -73,7 +73,7 @@ public class CounterpartyService : ICounterpartyService
                 var existing = counterparty.Contacts.FirstOrDefault(c => c.Id == contactDto.Id.Value);
                 if (existing is not null)
                 {
-                    existing.Name  = contactDto.Name;
+                    existing.Name = contactDto.Name;
                     existing.Phone = contactDto.Phone;
                     existing.Email = contactDto.Email;
                 }
@@ -83,7 +83,7 @@ public class CounterpartyService : ICounterpartyService
                 // Добавляем новый
                 counterparty.Contacts.Add(new Contact
                 {
-                    Name  = contactDto.Name,
+                    Name = contactDto.Name,
                     Phone = contactDto.Phone,
                     Email = contactDto.Email
                 });
@@ -105,15 +105,15 @@ public class CounterpartyService : ICounterpartyService
 
     private static CounterpartyResponseDto MapToResponse(Counterparty c) => new()
     {
-        Id      = c.Id,
-        Name    = c.Name,
-        Type    = c.Type,
-        Inn     = c.Inn,
+        Id = c.Id,
+        Name = c.Name,
+        Type = c.Type,
+        Inn = c.Inn,
         Address = c.Address,
         Contacts = c.Contacts.Select(contact => new ContactResponseDto
         {
-            Id    = contact.Id,
-            Name  = contact.Name,
+            Id = contact.Id,
+            Name = contact.Name,
             Phone = contact.Phone,
             Email = contact.Email
         }).ToList()

@@ -26,10 +26,10 @@ public class AnalyticsRepository : IAnalyticsRepository
             .GroupBy(oi => oi.ProductId)
             .Select(g => new
             {
-                ProductId     = g.Key,
+                ProductId = g.Key,
                 TotalQuantity = g.Sum(oi => oi.Quantity),
-                TotalAmount   = g.Sum(oi => oi.Quantity * oi.Price),
-                Count         = g.Select(oi => oi.OperationId).Distinct().Count()
+                TotalAmount = g.Sum(oi => oi.Quantity * oi.Price),
+                Count = g.Select(oi => oi.OperationId).Distinct().Count()
             })
             .OrderByDescending(x => x.TotalAmount)
             .Take(limit)
@@ -46,7 +46,7 @@ public class AnalyticsRepository : IAnalyticsRepository
                 o.Date >= from &&
                 o.Date <= to &&
                 (o.Type == OperationType.Income ||
-                 o.Type == OperationType.Sale   ||
+                 o.Type == OperationType.Sale ||
                  o.Type == OperationType.WriteOff))
             .AsNoTracking()
             .ToListAsync();

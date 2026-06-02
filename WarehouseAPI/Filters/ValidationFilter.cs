@@ -19,7 +19,7 @@ public class ValidationFilter : IActionFilter
 
         context.Result = new BadRequestObjectResult(new
         {
-            status  = 400,
+            status = 400,
             message = "Ошибка валидации",
             errors
         });

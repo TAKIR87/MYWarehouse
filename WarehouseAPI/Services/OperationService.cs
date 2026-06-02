@@ -102,7 +102,7 @@ public class OperationService : IOperationService
             // Уменьшаем остатки
             foreach (var item in dto.Items)
             {
-                var stock = await _operationRepository.GetStockAsync(item.ProductId)!;
+                var stock = (await _operationRepository.GetStockAsync(item.ProductId))!;
                 stock.Quantity -= item.Quantity;
                 await _operationRepository.UpdateStockAsync(stock);
             }
@@ -207,7 +207,7 @@ public class OperationService : IOperationService
             // Уменьшаем остатки (аналогично продаже, но другой тип операции)
             foreach (var item in dto.Items)
             {
-                var stock = await _operationRepository.GetStockAsync(item.ProductId)!;
+                var stock = (await _operationRepository.GetStockAsync(item.ProductId))!;
                 stock.Quantity -= item.Quantity;
                 await _operationRepository.UpdateStockAsync(stock);
             }

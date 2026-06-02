@@ -15,7 +15,7 @@ public class AnalyticsService : IAnalyticsService
         IProductRepository productRepository)
     {
         _analyticsRepository = analyticsRepository;
-        _productRepository   = productRepository;
+        _productRepository = productRepository;
     }
 
     // ─── ТОП ПРОДАВАЕМЫХ ТОВАРОВ ───────────────────────────────────────────────
@@ -28,7 +28,7 @@ public class AnalyticsService : IAnalyticsService
 
         // Подтягиваем названия товаров одним запросом
         var productIds = rows.Select(r => r.ProductId).ToList();
-        var products   = (await _productRepository.GetAllAsync())
+        var products = (await _productRepository.GetAllAsync())
             .Where(p => productIds.Contains(p.Id))
             .ToDictionary(p => p.Id);
 
@@ -37,12 +37,12 @@ public class AnalyticsService : IAnalyticsService
             products.TryGetValue(r.ProductId, out var product);
             return new TopProductDto
             {
-                ProductId      = r.ProductId,
-                ProductName    = product?.Name    ?? $"Товар #{r.ProductId}",
+                ProductId = r.ProductId,
+                ProductName = product?.Name ?? $"Товар #{r.ProductId}",
                 ProductArticle = product?.Article ?? string.Empty,
-                Unit           = product?.Unit    ?? string.Empty,
-                TotalQuantity  = r.TotalQuantity,
-                TotalAmount    = r.TotalAmount,
+                Unit = product?.Unit ?? string.Empty,
+                TotalQuantity = r.TotalQuantity,
+                TotalAmount = r.TotalAmount,
                 OperationsCount = r.Count
             };
         });
@@ -55,10 +55,10 @@ public class AnalyticsService : IAnalyticsService
 
         var turnover = new TurnoverDto
         {
-            From          = from,
-            To            = to,
-            IncomeAmount  = SumByType(operations, OperationType.Income),
-            SaleAmount    = SumByType(operations, OperationType.Sale),
+            From = from,
+            To = to,
+            IncomeAmount = SumByType(operations, OperationType.Income),
+            SaleAmount = SumByType(operations, OperationType.Sale),
             WriteOffAmount = SumByType(operations, OperationType.WriteOff)
         };
 
@@ -68,11 +68,11 @@ public class AnalyticsService : IAnalyticsService
             .OrderBy(g => g.Key)
             .Select(g => new TurnoverByDayDto
             {
-                Date         = g.Key,
+                Date = g.Key,
                 IncomeAmount = g.Where(o => o.Type == OperationType.Income)
                                 .SelectMany(o => o.Items)
                                 .Sum(i => i.Quantity * i.Price),
-                SaleAmount   = g.Where(o => o.Type == OperationType.Sale)
+                SaleAmount = g.Where(o => o.Type == OperationType.Sale)
                                 .SelectMany(o => o.Items)
                                 .Sum(i => i.Quantity * i.Price)
             })
@@ -91,12 +91,12 @@ public class AnalyticsService : IAnalyticsService
             .OrderBy(s => s.Quantity)   // сначала самые критичные
             .Select(s => new LowStockDto
             {
-                ProductId       = s.ProductId,
-                ProductName     = s.Product.Name,
-                ProductArticle  = s.Product.Article,
-                Unit            = s.Product.Unit,
+                ProductId = s.ProductId,
+                ProductName = s.Product.Name,
+                ProductArticle = s.Product.Article,
+                Unit = s.Product.Unit,
                 CurrentQuantity = s.Quantity,
-                MinQuantity     = minQuantity
+                MinQuantity = minQuantity
             });
     }
 

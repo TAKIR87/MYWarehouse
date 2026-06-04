@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 using WarehouseAPI.DTOs.Counterparties;
 using WarehouseAPI.Models;
 using WarehouseAPI.Services.Interfaces;
@@ -7,6 +8,8 @@ namespace WarehouseAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Produces("application/json")]
+[SwaggerTag("Контрагенты — клиенты, поставщики, компании")]
 public class CounterpartiesController : ControllerBase
 {
     private readonly ICounterpartyService _counterpartyService;
@@ -16,67 +19,88 @@ public class CounterpartiesController : ControllerBase
         _counterpartyService = counterpartyService;
     }
 
-    // GET api/counterparties
-    // GET api/counterparties?type=Client
-    // GET api/counterparties?type=Supplier
-    // GET api/counterparties?type=Company
+    /// <summary>Получить список всех контрагентов</summary>
+    /// <remarks>
+    /// Опциональный параметр `type` фильтрует по типу:
+    /// `0` = Client, `1` = Supplier, `2` = Company.
+    /// Без параметра возвращаются все контрагенты.
+    /// </remarks>
     [HttpGet]
+    [SwaggerResponse(200, "Список контрагентов", typeof(IEnumerable<CounterpartyResponseDto>))]
     public async Task<IActionResult> GetAll([FromQuery] CounterpartyType? type = null)
     {
         var counterparties = await _counterpartyService.GetAllAsync(type);
         return Ok(counterparties);
     }
 
-    // GET api/counterparties/5
+    /// <summary>Получить контрагента по ID</summary>
     [HttpGet("{id:int}")]
+    [SwaggerResponse(200, "Контрагент найден", typeof(CounterpartyResponseDto))]
+    [SwaggerResponse(404, "Контрагент не найден")]
     public async Task<IActionResult> GetById(int id)
     {
         var counterparty = await _counterpartyService.GetByIdAsync(id);
         return counterparty is null ? NotFound() : Ok(counterparty);
     }
 
-    // GET api/counterparties/clients  — удобный шорткат для фронтенда
+    /// <summary>Только клиенты (shortcut)</summary>
     [HttpGet("clients")]
+    [SwaggerResponse(200, "Список клиентов", typeof(IEnumerable<CounterpartyResponseDto>))]
     public async Task<IActionResult> GetClients()
     {
         var clients = await _counterpartyService.GetAllAsync(CounterpartyType.Client);
         return Ok(clients);
     }
 
-    // GET api/counterparties/suppliers
+    /// <summary>Только поставщики (shortcut)</summary>
     [HttpGet("suppliers")]
+    [SwaggerResponse(200, "Список поставщиков", typeof(IEnumerable<CounterpartyResponseDto>))]
     public async Task<IActionResult> GetSuppliers()
     {
         var suppliers = await _counterpartyService.GetAllAsync(CounterpartyType.Supplier);
         return Ok(suppliers);
     }
 
-    // GET api/counterparties/companies
+    /// <summary>Только компании (shortcut)</summary>
     [HttpGet("companies")]
+    [SwaggerResponse(200, "Список компаний", typeof(IEnumerable<CounterpartyResponseDto>))]
     public async Task<IActionResult> GetCompanies()
     {
         var companies = await _counterpartyService.GetAllAsync(CounterpartyType.Company);
         return Ok(companies);
     }
 
-    // POST api/counterparties
+    /// <summary>Создать контрагента</summary>
+    /// <remarks>Можно сразу передать список контактных лиц в поле `contacts`.</remarks>
     [HttpPost]
+    [SwaggerResponse(201, "Контрагент успешно создан", typeof(CounterpartyResponseDto))]
+    [SwaggerResponse(400, "Ошибка валидации")]
     public async Task<IActionResult> Create([FromBody] CounterpartyCreateDto dto)
     {
         var created = await _counterpartyService.CreateAsync(dto);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
-    // PUT api/counterparties/5
+    /// <summary>Обновить контрагента</summary>
+    /// <remarks>
+    /// Контакты обновляются полностью по списку: контакты с `id` — обновляются,
+    /// без `id` — создаются, отсутствующие — удаляются.
+    /// </remarks>
     [HttpPut("{id:int}")]
+    [SwaggerResponse(200, "Контрагент успешно обновлён", typeof(CounterpartyResponseDto))]
+    [SwaggerResponse(400, "Ошибка валидации")]
+    [SwaggerResponse(404, "Контрагент не найден")]
     public async Task<IActionResult> Update(int id, [FromBody] CounterpartyUpdateDto dto)
     {
         var updated = await _counterpartyService.UpdateAsync(id, dto);
         return updated is null ? NotFound() : Ok(updated);
     }
 
-    // DELETE api/counterparties/5
+    /// <summary>Удалить контрагента</summary>
+    /// <remarks>Контакты удаляются автоматически (каскадное удаление).</remarks>
     [HttpDelete("{id:int}")]
+    [SwaggerResponse(204, "Контрагент успешно удалён")]
+    [SwaggerResponse(404, "Контрагент не найден")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _counterpartyService.DeleteAsync(id);

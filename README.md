@@ -11,6 +11,7 @@ REST API бэкенд для системы складского учёта. Р�
 - [API — эндпоинты](#api--эндпоинты)
 - [Запуск проекта](#запуск-проекта)
 - [Переменные окружения](#переменные-окружения)
+- [Формат ответа при ошибке](#формат-ответа-при-ошибке)
 
 ---
 
@@ -73,31 +74,13 @@ WarehouseAPI/
 │
 ├── Services/                     # Бизнес-логика
 │   ├── Interfaces/
-│   │   ├── IProductService.cs
-│   │   ├── ICounterpartyService.cs
-│   │   ├── IOperationService.cs
-│   │   ├── IStockService.cs
-│   │   └── IAnalyticsService.cs
-│   ├── ProductService.cs
-│   ├── CounterpartyService.cs
-│   ├── OperationService.cs
-│   ├── StockService.cs
-│   └── AnalyticsService.cs
+│   └── *.cs
 │
 ├── Repositories/                 # Доступ к данным
 │   ├── Interfaces/
-│   │   ├── IProductRepository.cs
-│   │   ├── ICounterpartyRepository.cs
-│   │   ├── IOperationRepository.cs
-│   │   ├── IStockRepository.cs
-│   │   └── IAnalyticsRepository.cs
-│   ├── ProductRepository.cs
-│   ├── CounterpartyRepository.cs
-│   ├── OperationRepository.cs
-│   ├── StockRepository.cs
-│   └── AnalyticsRepository.cs
+│   └── *.cs
 │
-├── Models/                       # Сущности EF Core
+├── Models/                       # Сущности EF Core (6 таблиц)
 │   ├── Product.cs
 │   ├── Stock.cs
 │   ├── Operation.cs
@@ -107,34 +90,19 @@ WarehouseAPI/
 │
 ├── DTOs/                         # Объекты передачи данных
 │   ├── Products/
-│   │   ├── ProductCreateDto.cs
-│   │   ├── ProductUpdateDto.cs
-│   │   └── ProductResponseDto.cs
 │   ├── Counterparties/
-│   │   ├── CounterpartyCreateDto.cs
-│   │   ├── CounterpartyUpdateDto.cs
-│   │   ├── CounterpartyResponseDto.cs
-│   │   └── ContactDto.cs
 │   ├── Operations/
-│   │   ├── OperationCreateDto.cs   # IncomeCreateDto / SaleCreateDto / ...
-│   │   ├── OperationResponseDto.cs
-│   │   ├── OperationItemDto.cs
-│   │   └── OperationFilterDto.cs
 │   ├── Stock/
-│   │   └── StockResponseDto.cs
 │   └── Analytics/
-│       ├── TopProductDto.cs
-│       ├── TurnoverDto.cs
-│       └── LowStockDto.cs
 │
 ├── Data/
 │   └── AppDbContext.cs            # DbContext, конфигурация связей
 │
 ├── Middleware/
-│   └── ExceptionHandlingMiddleware.cs  # Глобальная обработка ошибок
+│   └── ExceptionHandlingMiddleware.cs
 │
 ├── Filters/
-│   └── ValidationFilter.cs        # Глобальная валидация DTO
+│   └── ValidationFilter.cs
 │
 ├── Migrations/                    # EF Core миграции
 ├── appsettings.json
@@ -145,11 +113,11 @@ WarehouseAPI/
 
 ## База данных
 
-### Схема
+### Схема связей
 
 ```
-Products ──────────── Stock
-   │                (1 : 1)
+Products ──────────── Stocks
+   │                 (1 : 1)
    │
    └──── OperationItems ──── Operations ──── Counterparties
               (N)               (1)               (1)
@@ -229,8 +197,9 @@ Products ──────────── Stock
 | `DELETE` | `/api/products/{id}` | Удалить товар (нельзя если есть остаток) |
 
 <details>
-<summary>Пример запроса POST /api/products</summary>
+<summary>Пример POST /api/products</summary>
 
+**Запрос:**
 ```json
 {
   "name": "Молоко 1л",
@@ -240,6 +209,20 @@ Products ──────────── Stock
 }
 ```
 
+**Ответ `201 Created`:**
+```json
+{
+  "id": 1,
+  "name": "Молоко 1л",
+  "article": "MLK-001",
+  "unit": "шт",
+  "price": 89.90,
+  "currentStock": 0,
+  "createdAt": "2025-01-15T10:00:00Z"
+}
+```
+
+**Ошибки:** `400` — артикул уже занят, `400` — ошибка валидации полей
 </details>
 
 ---
@@ -250,6 +233,28 @@ Products ──────────── Stock
 |---|---|---|
 | `GET` | `/api/stock` | Остатки по всем товарам |
 | `GET` | `/api/stock/{productId}` | Остаток по конкретному товару |
+
+<details>
+<summary>Пример GET /api/stock</summary>
+
+**Ответ `200 OK`:**
+```json
+[
+  {
+    "productId": 1,
+    "productName": "Молоко 1л",
+    "productArticle": "MLK-001",
+    "unit": "шт",
+    "quantity": 150,
+    "price": 89.90,
+    "totalValue": 13485.00,
+    "updatedAt": "2025-01-15T12:00:00Z"
+  }
+]
+```
+
+**Ошибки:** `404` — товар не найден (для `/stock/{productId}`)
+</details>
 
 ---
 
@@ -264,7 +269,7 @@ Products ──────────── Stock
 | `POST` | `/api/operations/transfer` | Перемещение |
 | `POST` | `/api/operations/writeoff` | Списание |
 
-**Фильтры для GET /api/operations/history:**
+**Фильтры для `GET /api/operations/history`:**
 
 | Параметр | Тип | Описание |
 |---|---|---|
@@ -277,8 +282,9 @@ Products ──────────── Stock
 | `pageSize` | int | Размер страницы (по умолчанию 20) |
 
 <details>
-<summary>Пример запроса POST /api/operations/income</summary>
+<summary>Пример POST /api/operations/income</summary>
 
+**Запрос:**
 ```json
 {
   "counterpartyId": 1,
@@ -290,9 +296,27 @@ Products ──────────── Stock
 }
 ```
 
+**Ответ `201 Created`:**
+```json
+{
+  "id": 42,
+  "type": 0,
+  "typeLabel": "Приход",
+  "date": "2025-01-15T10:00:00Z",
+  "comment": "Плановая поставка",
+  "counterpartyId": 1,
+  "counterpartyName": "ООО Поставщик",
+  "items": [
+    { "productId": 3, "productName": "Товар А", "productArticle": "ART-003", "quantity": 100, "price": 45.00 }
+  ],
+  "totalAmount": 10500.00
+}
+```
+
+**Ошибки:** `400` — недостаточно остатка (для sale/transfer/writeoff), `400` — пустой список товаров
 </details>
 
-> ⚠️ Все операции выполняются в транзакции. При недостаточном остатке для `Sale`, `Transfer`, `WriteOff` — возвращается `400 Bad Request` с описанием ошибки, изменений в БД не происходит.
+> ⚠️ Все операции выполняются в транзакции. При недостаточном остатке для `Sale`, `Transfer`, `WriteOff` — возвращается `400 Bad Request`, изменений в БД не происходит.
 
 ---
 
@@ -310,23 +334,72 @@ Products ──────────── Stock
 | `PUT` | `/api/counterparties/{id}` | Обновить контрагента и контакты |
 | `DELETE` | `/api/counterparties/{id}` | Удалить контрагента |
 
+<details>
+<summary>Пример POST /api/counterparties</summary>
+
+**Запрос:**
+```json
+{
+  "name": "ООО Ромашка",
+  "type": 1,
+  "inn": "7701234567",
+  "address": "г. Москва, ул. Ленина, 1",
+  "contacts": [
+    { "name": "Иван Иванов", "phone": "+79001234567", "email": "ivan@romashka.ru" }
+  ]
+}
+```
+
+**Ответ `201 Created`:**
+```json
+{
+  "id": 5,
+  "name": "ООО Ромашка",
+  "type": 1,
+  "typeLabel": "Поставщик",
+  "inn": "7701234567",
+  "address": "г. Москва, ул. Ленина, 1",
+  "contacts": [
+    { "id": 3, "name": "Иван Иванов", "phone": "+79001234567", "email": "ivan@romashka.ru" }
+  ]
+}
+```
+
+**Ошибки:** `404` — контрагент не найден, `400` — ошибка валидации
+</details>
+
 ---
 
 ### Аналитика `/api/analytics`
 
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/analytics/top-products` | Топ продаваемых товаров за период |
-| `GET` | `/api/analytics/turnover` | Обороты (приход / продажи / списания) за период |
-| `GET` | `/api/analytics/low-stock` | Товары с остатком ниже минимума |
+| Метод | Путь | Параметры | Описание |
+|---|---|---|---|
+| `GET` | `/api/analytics/top-products` | `from`, `to`, `limit` (1–100) | Топ продаваемых товаров |
+| `GET` | `/api/analytics/turnover` | `from`, `to` | Обороты за период |
+| `GET` | `/api/analytics/low-stock` | `minQuantity` (по умолч. 5) | Остатки ниже минимума |
 
-**Параметры:**
+<details>
+<summary>Пример GET /api/analytics/turnover</summary>
 
-| Эндпоинт | Параметры |
-|---|---|
-| `top-products` | `from`, `to`, `limit` (1–100, по умолч. 10) |
-| `turnover` | `from`, `to` — возвращает разбивку по дням |
-| `low-stock` | `minQuantity` (по умолч. 5) |
+**Запрос:** `GET /api/analytics/turnover?from=2025-01-01&to=2025-01-31`
+
+**Ответ `200 OK`:**
+```json
+{
+  "from": "2025-01-01T00:00:00Z",
+  "to": "2025-01-31T00:00:00Z",
+  "incomeAmount": 150000.00,
+  "saleAmount": 98000.00,
+  "writeOffAmount": 2000.00,
+  "profit": -52000.00,
+  "byDay": [
+    { "date": "2025-01-15", "incomeAmount": 45000.00, "saleAmount": 12000.00 }
+  ]
+}
+```
+
+**Ошибки:** `400` — дата начала позже даты конца
+</details>
 
 ---
 
@@ -335,7 +408,7 @@ Products ──────────── Stock
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/` | Информация о сервисе |
-| `GET` | `/health` | Проверка доступности |
+| `GET` | `/health` | Проверка доступности (`"ok"`) |
 | `GET` | `/swagger` | Swagger UI (только в Development) |
 
 ---
@@ -345,59 +418,114 @@ Products ──────────── Stock
 ### Требования
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [PostgreSQL 15+](https://www.postgresql.org/download/)
+- [PostgreSQL 15+](https://www.postgresql.org/download/) **или** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-### 1. Клонировать репозиторий
+---
 
+### Вариант 1 — Обычный запуск (без Docker)
+
+**1. Клонировать репозиторий:**
 ```bash
 git clone <url-репозитория>
+cd MYWarehouse-maintenance
+```
+
+**2. Создать базу данных в PostgreSQL:**
+```sql
+CREATE DATABASE warehouse_db;
+```
+
+**3. Настроить строку подключения через User Secrets (безопасно — не попадает в git):**
+```bash
 cd WarehouseAPI
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
+  "Host=localhost;Port=5432;Database=warehouse_db;Username=postgres;Password=ВАШ_ПАРОЛЬ"
 ```
 
-### 2. Настроить строку подключения
-
-Открой `appsettings.json` и заполни `DefaultConnection`:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=warehouse_db;Username=postgres;Password=твой_пароль"
-  }
-}
-```
-
-> Базу данных `warehouse_db` нужно создать заранее в pgAdmin или через `psql`:
-> ```sql
-> CREATE DATABASE warehouse_db;
-> ```
-
-### 3. Применить миграции
-
+**4. Применить миграции:**
 ```bash
 dotnet ef database update
 ```
 
-После выполнения все таблицы будут созданы автоматически.
-
-### 4. Запустить API
-
+**5. Запустить API:**
 ```bash
 dotnet run
 ```
 
-API будет доступен по адресам:
-- HTTP: `http://localhost:5023`
-- HTTPS: `https://localhost:7150`
+API доступен по адресам:
+- `http://localhost:5023`
+- `https://localhost:7150`
 - Swagger UI: `http://localhost:5023/swagger`
+
+---
+
+### Вариант 2 — Запуск через Docker Compose
+
+**Требования:** Docker Desktop установлен и запущен.
+
+**1. Клонировать репозиторий:**
+```bash
+git clone <url-репозитория>
+cd MYWarehouse-maintenance
+```
+
+**2. Создать файл `.env` в корне репозитория:**
+```bash
+cp .env.example .env
+```
+Открыть `.env` и заполнить своими значениями (см. раздел [Переменные окружения](#переменные-окружения)).
+
+**3. Запустить все сервисы одной командой:**
+```bash
+docker-compose up -d
+```
+
+Docker автоматически:
+- Поднимет контейнер PostgreSQL
+- Соберёт образ WarehouseAPI
+- Применит миграции при старте
+- Запустит API
+
+**4. Проверить что всё работает:**
+```bash
+curl http://localhost:5023/health
+# Ответ: "ok"
+```
+
+**5. Открыть Swagger UI:**
+```
+http://localhost:5023/swagger
+```
+
+**Остановить все контейнеры:**
+```bash
+docker-compose down
+```
+
+**Остановить и удалить данные БД:**
+```bash
+docker-compose down -v
+```
 
 ---
 
 ## Переменные окружения
 
-| Переменная | Описание |
-|---|---|
-| `ASPNETCORE_ENVIRONMENT` | `Development` — включает Swagger и расширенные логи |
-| `ConnectionStrings__DefaultConnection` | Строка подключения к PostgreSQL |
+Все настройки задаются через файл `.env` (для Docker) или через User Secrets / переменные окружения (для обычного запуска).
+
+**Файл `.env.example`** — шаблон, хранится в репозитории. Скопируйте его в `.env` и заполните своими значениями. Сам `.env` в git не попадает.
+
+| Переменная | Пример значения | Описание |
+|---|---|---|
+| `POSTGRES_DB` | `warehouse_db` | Имя базы данных |
+| `POSTGRES_USER` | `postgres_user` | Пользователь PostgreSQL |
+| `POSTGRES_PASSWORD` | `YOUR_STRONG_PASSWORD` | Пароль PostgreSQL |
+| `POSTGRES_PORT` | `5432` | Порт PostgreSQL |
+| `ASPNETCORE_ENVIRONMENT` | `Development` | Режим ASP.NET Core (`Development` включает Swagger) |
+| `ASPNETCORE_URLS` | `http://+:5023` | Адрес и порт HTTP-сервера |
+| `ConnectionStrings__DefaultConnection` | `Host=db;Port=5432;...` | Полная строка подключения к PostgreSQL |
+
+> ⚠️ Никогда не коммитьте файл `.env` в репозиторий. Он добавлен в `.gitignore`.
 
 ---
 
@@ -416,6 +544,6 @@ API будет доступен по адресам:
 
 | HTTP-код | Причина |
 |---|---|
-| `400` | Ошибка валидации DTO или бизнес-правил (нехватка остатка и т.д.) |
+| `400` | Ошибка валидации DTO или бизнес-правил |
 | `404` | Запрошенный ресурс не найден |
 | `500` | Внутренняя ошибка сервера |

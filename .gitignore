@@ -23,3 +23,6 @@ Thumbs.db
 # Optional local env (keep secrets out of git)
 appsettings.Development.json
 .env
+
+logs/
+*.log

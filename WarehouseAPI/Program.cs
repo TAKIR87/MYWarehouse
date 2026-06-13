@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using Serilog.Events;
 using WarehouseAPI.Data;
 using WarehouseAPI.Filters;
 using WarehouseAPI.Middleware;
@@ -7,12 +9,41 @@ using WarehouseAPI.Repositories.Interfaces;
 using WarehouseAPI.Services;
 using WarehouseAPI.Services.Interfaces;
 
+// ─── Настройка Serilog ДО создания builder ────────────────────────────────────
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    // Канал 1 — Консоль
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+    )
+    // Канал 2 — Файл с ротацией (10 МБ, 5 архивных копий)
+    .WriteTo.File(
+        path: "logs/app.log",
+        rollingInterval: RollingInterval.Day,
+        fileSizeLimitBytes: 10 * 1024 * 1024,
+        retainedFileCountLimit: 5,
+        rollOnFileSizeLimit: true,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Подключаем Serilog к ASP.NET Core
+builder.Host.UseSerilog();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+    Log.Information("База данных: строка подключения загружена успешно");
+}
+else
+{
+    Log.Warning("Строка подключения 'DefaultConnection' не задана — функции работы с БД недоступны");
 }
 
 // CORS
@@ -60,16 +91,32 @@ builder.Services.AddSwaggerGen(options =>
                       "операциями (приход/продажа/перемещение/списание), " +
                       "контрагентами и аналитикой."
     });
-
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
         options.IncludeXmlComments(xmlPath);
-
     options.EnableAnnotations();
 });
 
 var app = builder.Build();
+
+// ─── Проверка подключения к БД при старте ─────────────────────────────────────
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.CanConnectAsync();
+        Log.Information("Подключение к PostgreSQL установлено успешно");
+    }
+    catch (Exception ex)
+    {
+        Log.Fatal(ex,
+            "КРИТИЧЕСКАЯ ОШИБКА: не удалось подключиться к PostgreSQL. " +
+            "Проверьте строку подключения и доступность сервера БД");
+    }
+}
 
 // Middleware первым — перехватывает все исключения ниже по pipeline
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -83,12 +130,6 @@ if (app.Environment.IsDevelopment())
         options.RoutePrefix = "swagger";
         options.DocumentTitle = "WarehouseAPI — Документация";
     });
-
-    if (string.IsNullOrWhiteSpace(connectionString))
-    {
-        app.Logger.LogWarning(
-            "Connection string 'DefaultConnection' is not configured. Database features will be unavailable.");
-    }
 }
 
 if (!app.Environment.IsDevelopment())
@@ -102,4 +143,18 @@ app.MapGet("/", () => Results.Ok(new { service = "WarehouseAPI", version = "1.0"
 app.MapGet("/health", () => Results.Ok("ok"));
 
 app.MapControllers();
-app.Run();
+
+Log.Information("WarehouseAPI запущен. Среда: {Environment}", app.Environment.EnvironmentName);
+
+try
+{
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "WarehouseAPI завершил работу из-за необработанного исключения");
+}
+finally
+{
+    await Log.CloseAndFlushAsync();
+}
